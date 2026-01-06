@@ -3,7 +3,7 @@
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "🚀 SOCIAL HUNTER - Tezkor Deploy" -ForegroundColor Green
+Write-Host "SOCIAL HUNTER - Tezkor Deploy" -ForegroundColor Green
 Write-Host ""
 
 $SERVER_IP = "167.71.53.238"
@@ -14,7 +14,7 @@ $DOMAIN = "yengil.cdcgroup.uz"
 
 # Posh-SSH modulini tekshirish
 if (-not (Get-Module -ListAvailable -Name Posh-SSH)) {
-    Write-Host "📦 Posh-SSH modulini o'rnatish..." -ForegroundColor Yellow
+    Write-Host "Posh-SSH modulini o'rnatish..." -ForegroundColor Yellow
     Install-Module -Name Posh-SSH -Force -Scope CurrentUser -SkipPublisherCheck
 }
 
@@ -24,32 +24,29 @@ Import-Module Posh-SSH
 $securePassword = ConvertTo-SecureString $SERVER_PASS -AsPlainText -Force
 $credential = New-Object System.Management.Automation.PSCredential($SERVER_USER, $securePassword)
 
-Write-Host "🔌 Serverga ulanish..." -ForegroundColor Yellow
+Write-Host "Serverga ulanish..." -ForegroundColor Yellow
 try {
     $session = New-SSHSession -ComputerName $SERVER_IP -Credential $credential -AcceptKey -ErrorAction Stop
-    Write-Host "✅ Ulanish muvaffaqiyatli!" -ForegroundColor Green
+    Write-Host "Ulanish muvaffaqiyatli!" -ForegroundColor Green
 } catch {
-    Write-Host "❌ Serverga ulana olmadi: $_" -ForegroundColor Red
+    Write-Host "Serverga ulana olmadi: $_" -ForegroundColor Red
     exit 1
 }
 
 Write-Host ""
-Write-Host "📦 1. Paketlarni o'rnatish..." -ForegroundColor Cyan
-$installCmd = @"
-apt update -y && \
-apt install -y python3 python3-venv python3-pip nginx certbot python3-certbot-nginx git -y
-"@
+Write-Host "1. Paketlarni o'rnatish..." -ForegroundColor Cyan
+$installCmd = "apt update -y; apt install -y python3 python3-venv python3-pip nginx certbot python3-certbot-nginx git"
 $result = Invoke-SSHCommand -SessionId $session.SessionId -Command $installCmd
-Write-Host "✅ Paketlar o'rnatildi" -ForegroundColor Green
+Write-Host "Paketlar o'rnatildi" -ForegroundColor Green
 
 Write-Host ""
-Write-Host "📁 2. Loyiha papkasini yaratish..." -ForegroundColor Cyan
-$mkdirCmd = "mkdir -p $APP_DIR && cd $APP_DIR"
+Write-Host "2. Loyiha papkasini yaratish..." -ForegroundColor Cyan
+$mkdirCmd = "mkdir -p $APP_DIR; cd $APP_DIR"
 Invoke-SSHCommand -SessionId $session.SessionId -Command $mkdirCmd
-Write-Host "✅ Papka yaratildi" -ForegroundColor Green
+Write-Host "Papka yaratildi" -ForegroundColor Green
 
 Write-Host ""
-Write-Host "📥 3. Fayllarni serverga ko'chirish..." -ForegroundColor Cyan
+Write-Host "3. Fayllarni serverga kochirish..." -ForegroundColor Cyan
 $files = @("*.py", "requirements.txt", "README.md", ".gitignore")
 foreach ($pattern in $files) {
     $localFiles = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue
@@ -61,92 +58,47 @@ foreach ($pattern in $files) {
 Write-Host "✅ Fayllar ko'chirildi" -ForegroundColor Green
 
 Write-Host ""
-Write-Host "🐍 4. Python virtual environment..." -ForegroundColor Cyan
-$venvCmd = @"
-cd $APP_DIR && \
-python3 -m venv venv && \
-source venv/bin/activate && \
-pip install --upgrade pip && \
-pip install -r requirements.txt
-"@
+Write-Host "4. Python virtual environment..." -ForegroundColor Cyan
+$venvCmd = "cd $APP_DIR; python3 -m venv venv; source venv/bin/activate; pip install --upgrade pip; pip install -r requirements.txt"
 Invoke-SSHCommand -SessionId $session.SessionId -Command $venvCmd
-Write-Host "✅ Python environment sozlandi" -ForegroundColor Green
+Write-Host "Python environment sozlandi" -ForegroundColor Green
 
 Write-Host ""
-Write-Host "🌐 5. Nginx konfiguratsiyasi..." -ForegroundColor Cyan
-$nginxConfig = @"
-server {
-    listen 80;
-    server_name $DOMAIN;
+Write-Host "5. Nginx konfiguratsiyasi..." -ForegroundColor Cyan
+$nginxConfig = "server {`n    listen 80;`n    server_name $DOMAIN;`n`n    location / {`n        proxy_pass http://127.0.0.1:8000;`n        proxy_set_header Host `$host;`n        proxy_set_header X-Real-IP `$remote_addr;`n        proxy_set_header X-Forwarded-For `$proxy_add_x_forwarded_for;`n        proxy_set_header X-Forwarded-Proto `$scheme;`n    }`n}"
 
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host `$host;
-        proxy_set_header X-Real-IP `$remote_addr;
-        proxy_set_header X-Forwarded-For `$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto `$scheme;
-    }
-}
-"@
-
-$nginxConfig | Out-File -FilePath "nginx_temp.txt" -Encoding UTF8
+$nginxConfig | Out-File -FilePath "nginx_temp.txt" -Encoding UTF8 -NoNewline
 Set-SCPFile -ComputerName $SERVER_IP -Credential $credential -LocalFile "nginx_temp.txt" -RemotePath "/tmp/nginx_config.txt"
 Remove-Item "nginx_temp.txt"
 
-$nginxSetup = @"
-cat /tmp/nginx_config.txt > /etc/nginx/sites-available/social_hunter && \
-ln -sf /etc/nginx/sites-available/social_hunter /etc/nginx/sites-enabled/ && \
-rm -f /etc/nginx/sites-enabled/default && \
-nginx -t && \
-systemctl reload nginx
-"@
+$nginxSetup = "cat /tmp/nginx_config.txt > /etc/nginx/sites-available/social_hunter; ln -sf /etc/nginx/sites-available/social_hunter /etc/nginx/sites-enabled/; rm -f /etc/nginx/sites-enabled/default; nginx -t; systemctl reload nginx"
 Invoke-SSHCommand -SessionId $session.SessionId -Command $nginxSetup
-Write-Host "✅ Nginx sozlandi" -ForegroundColor Green
+Write-Host "Nginx sozlandi" -ForegroundColor Green
 
 Write-Host ""
-Write-Host "🔒 6. HTTPS sertifikat..." -ForegroundColor Cyan
-$certbotCmd = "certbot --nginx -d $DOMAIN --non-interactive --agree-tos --email admin@$DOMAIN || echo 'DNS tekshirib ko''ring'"
+Write-Host "6. HTTPS sertifikat..." -ForegroundColor Cyan
+$certbotCmd = "certbot --nginx -d $DOMAIN --non-interactive --agree-tos --email admin@$DOMAIN || echo 'DNS tekshirib koring'"
 Invoke-SSHCommand -SessionId $session.SessionId -Command $certbotCmd
-Write-Host "✅ HTTPS sozlandi" -ForegroundColor Green
+Write-Host "HTTPS sozlandi" -ForegroundColor Green
 
 Write-Host ""
-Write-Host "🔧 7. Systemd service..." -ForegroundColor Cyan
-$serviceConfig = @"
-[Unit]
-Description=Social Hunter Bot + Webhook Server
-After=network.target
+Write-Host "7. Systemd service..." -ForegroundColor Cyan
+$serviceConfig = "[Unit]`nDescription=Social Hunter Bot + Webhook Server`nAfter=network.target`n`n[Service]`nType=simple`nUser=root`nWorkingDirectory=$APP_DIR`nEnvironment=`"PYTHONUNBUFFERED=1`"`nExecStart=$APP_DIR/venv/bin/python $APP_DIR/main.py`nRestart=always`nRestartSec=10`n`n[Install]`nWantedBy=multi-user.target"
 
-[Service]
-Type=simple
-User=root
-WorkingDirectory=$APP_DIR
-Environment=`"PYTHONUNBUFFERED=1`"
-ExecStart=$APP_DIR/venv/bin/python $APP_DIR/main.py
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-"@
-
-$serviceConfig | Out-File -FilePath "service_temp.txt" -Encoding UTF8
+$serviceConfig | Out-File -FilePath "service_temp.txt" -Encoding UTF8 -NoNewline
 Set-SCPFile -ComputerName $SERVER_IP -Credential $credential -LocalFile "service_temp.txt" -RemotePath "/tmp/service_config.txt"
 Remove-Item "service_temp.txt"
 
-$serviceSetup = @"
-cat /tmp/service_config.txt > /etc/systemd/system/social_hunter.service && \
-systemctl daemon-reload && \
-systemctl enable social_hunter.service
-"@
+$serviceSetup = "cat /tmp/service_config.txt > /etc/systemd/system/social_hunter.service; systemctl daemon-reload; systemctl enable social_hunter.service"
 Invoke-SSHCommand -SessionId $session.SessionId -Command $serviceSetup
-Write-Host "✅ Systemd service yaratildi" -ForegroundColor Green
+Write-Host "Systemd service yaratildi" -ForegroundColor Green
 
 Remove-SSHSession -SessionId $session.SessionId
 
 Write-Host ""
-Write-Host "🎉 Deploy yakunlandi!" -ForegroundColor Green
+Write-Host "Deploy yakunlandi!" -ForegroundColor Green
 Write-Host ""
-Write-Host "📋 Keyingi qadamlar:" -ForegroundColor Cyan
+Write-Host "Keyingi qadamlar:" -ForegroundColor Cyan
 Write-Host "1. Serverga kiring: ssh root@$SERVER_IP" -ForegroundColor White
 Write-Host "2. Config faylini tahrirlang: nano $APP_DIR/config.py" -ForegroundColor White
 Write-Host "3. Serviceni ishga tushiring: systemctl start social_hunter" -ForegroundColor White
