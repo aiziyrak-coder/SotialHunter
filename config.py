@@ -23,8 +23,13 @@ INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME", "aisotuvchiman")
 INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD", "Aa.19980912")
 
 # Webhook Configuration
+# Serverga deploy qilingan doimiy domen: https://yengil.cdcgroup.uz
+# Agar .env da WEBHOOK_URL berilmasa, shu domen ishlatiladi.
 INSTAGRAM_VERIFY_TOKEN = os.getenv("INSTAGRAM_VERIFY_TOKEN", "social_hunter_verify_token")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://your-domain.com/webhook")
+WEBHOOK_URL = os.getenv(
+    "WEBHOOK_URL",
+    "https://yengil.cdcgroup.uz/webhook"
+)
 
 # Gemini AI Configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyBUrNipIDFCnSeZ5nokTqN6o75kDEpklGg")
